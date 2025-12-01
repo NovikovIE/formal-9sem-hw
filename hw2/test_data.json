@@ -1,0 +1,26 @@
+[
+  {
+    "name": "a|b",
+    "regex": "a|b",
+    "should_accept": ["a", "b"],
+    "should_reject": ["ab", "", "c"]
+  },
+  {
+    "name": "a*",
+    "regex": "a*",
+    "should_accept": ["", "a", "aaaa"],
+    "should_reject": ["b", "ab"]
+  },
+  {
+    "name": "(0|1)*10",
+    "regex": "(0|1)*10",
+    "should_accept": ["10", "010", "1110"],
+    "should_reject": ["1", "0", "101"]
+  },
+  {
+    "name": "((ab)|c)*",
+    "regex": "((ab)|c)*",
+    "should_accept": ["", "ab", "c", "abab", "abc", "cab"],
+    "should_reject": ["a", "b", "ac", "bc"]
+  }
+]
