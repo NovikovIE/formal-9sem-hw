@@ -1,9 +1,11 @@
 #pragma once
+
 #include <vector>
 #include <string>
 #include <stack>
 #include <set>
 #include <map>
+#include <unordered_map>
 #include <algorithm>
 #include <queue>
 #include <sstream>
@@ -11,10 +13,12 @@
 
 struct Automaton {
     int startState = 0;
+    int stateCount = 0;
+
     std::set<int> finalStates;
+
     std::vector<std::tuple<int, int, char>> transitions;
     std::vector<int> lookup;
-    int stateCount = 0;
 
     int addState() { 
         return stateCount++; 
@@ -24,9 +28,6 @@ struct Automaton {
     }
 
     void finalize() {
-        if (!stateCount) {
-            return;
-        }
         lookup.assign(stateCount * 256, -1);
         for (const auto& [u, v, c] : transitions) {
             lookup[u * 256 + static_cast<unsigned char>(c)] = v;
@@ -71,11 +72,7 @@ struct Automaton {
     }
 };
 
-inline bool match(const Automaton& dfa, const std::string& s) {
-    if (dfa.lookup.empty()) {
-        return false;
-    }
-    
+bool match(const Automaton& dfa, const std::string& s) {
     int cur = dfa.startState;
     for (char c : s) {
         cur = dfa.lookup[cur * 256 + static_cast<unsigned char>(c)];
@@ -152,8 +149,7 @@ private:
 
                 nfa.addTx(s, s1, EPS); 
                 nfa.addTx(s, e, EPS);
-                nfa.addTx(e1, s1, EPS); 
-                nfa.addTx(e1, e, EPS);
+                nfa.addTx(e1, s, EPS); 
 
                 st.push({s, e});
             } else {
@@ -171,13 +167,11 @@ private:
     }
 
     Automaton toDFA(const Automaton& nfa) {
-        if (!nfa.stateCount) {
-            return {};
-        }
         Automaton dfa;
         
         std::vector<std::vector<int>> adjEps(nfa.stateCount);
         std::vector<std::vector<std::pair<int, char>>> adjSym(nfa.stateCount);
+
         for (auto [u, v, c] : nfa.transitions) {
             if (c == EPS) {
                 adjEps[u].push_back(v);
@@ -214,7 +208,7 @@ private:
         std::map<std::vector<int>, int> states;
         std::queue<std::vector<int>> q;
 
-        auto regState = [&](std::vector<int> s) {
+        auto addDFAState = [&](std::vector<int> s) {
             if (states.count(s)) {
                 return states[s];
             }
@@ -229,9 +223,9 @@ private:
             return id;
         };
 
-        dfa.startState = regState(getClosure({nfa.startState}));
+        dfa.startState = addDFAState(getClosure({nfa.startState}));
 
-        while(!q.empty()){
+        while (!q.empty()){
             auto u = q.front(); 
             q.pop();
             int u_id = states[u];
@@ -244,7 +238,7 @@ private:
             }
             
             for(auto& [c, targets] : moves) {
-                int v_id = regState(getClosure(targets));
+                int v_id = addDFAState(getClosure(targets));
                 dfa.addTx(u_id, v_id, c);
             }
         }
@@ -252,10 +246,6 @@ private:
     }
 
     Automaton minimizeDFA(const Automaton& dfa) {
-        if (!dfa.stateCount) {
-            return {};
-        }
-
         std::vector<std::vector<int>> trans(dfa.stateCount, std::vector<int>(256, -1));
         std::set<char> abc;
         for (auto [u, v, c] : dfa.transitions) { 
@@ -275,7 +265,7 @@ private:
             std::vector<int> nextGroup(dfa.stateCount);
             int gCount = 0;
 
-            for (int i=0; i<dfa.stateCount; ++i) {
+            for (int i = 0; i < dfa.stateCount; ++i) {
                 std::vector<int> sig;
                 for (char c : abc) {
                     int t = trans[i][static_cast<unsigned char>(c)];
@@ -326,8 +316,7 @@ private:
         for (size_t i = 0; i < s.size(); ++i) {
             res += s[i];
             if (i + 1 < s.size()) {
-                char c1 = s[i], c2 = s[i + 1];
-                if (c1 != '(' && c1 != UNION && c2 != ')' && c2 != UNION && c2 != STAR) {
+                if (s[i] != '(' && s[i] != UNION && s[i + 1] != ')' && s[i + 1] != UNION && s[i + 1] != STAR) {
                     res += CONCAT;
                 }
             }
@@ -336,7 +325,8 @@ private:
     }
 
     std::string toPostfix(const std::string& s) {
-        std::string res; std::stack<char> op;
+        std::string res; 
+        std::stack<char> op;
         std::map<char, int> p = {{UNION, 1}, {CONCAT, 2}, {STAR, 3}};
         for (char c : s) {
             if (c == '(') {
