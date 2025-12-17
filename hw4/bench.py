@@ -3,6 +3,7 @@ import random
 import copy
 import json
 import sys
+import tracemalloc
 
 import CYK_graph_naive as old_impl
 import CYK as new_impl
@@ -16,10 +17,9 @@ G_RULES = {
     'S': [['D', 'E']]
 }
 
-def generate_random_graph_matrix(n, density=0.3):
+def generate_random_graph_matrix(n, density=0.25):
     matrix = [['0'] * n for _ in range(n)]
-    terminals = ['a', 'c', 'd'] # Терминалы, которые есть в грамматике
-    
+    terminals = ['a', 'c', 'd'] 
     for i in range(n):
         for j in range(n):
             if i != j and random.random() < density:
@@ -27,51 +27,79 @@ def generate_random_graph_matrix(n, density=0.3):
     return matrix
 
 def run_benchmarks():
-    sizes = [i for i in range(1, 70 + 1)] 
+    sizes = [i for i in range(2, 71, 2)] 
     
     results = {
         "sizes": sizes,
-        "old_times": [],
-        "new_times": []
+        
+        "old_times": [], 
+        "new_times": [],
+        
+        "old_mems": [], 
+        "new_mems": [],
+        
+        "density": [],
     }
 
     new_grammar_obj = new_impl.Grammar(G_RULES)
     new_solver = new_impl.CYKGraph(new_grammar_obj)
 
-    print(f"{'Size (N)':<10} | {'Old Time (s)':<15} | {'New Time (s)':<15}")
-    print("-" * 45)
+    print(f"{'Size':<5} | {'Old T (s)':<12} | {'New T (s)':<12} | {'Old Mem (KB)':<12} | {'New Mem (KB)':<12} | {'Density':<12}")
+    print("-" * 70)
 
     ITERATIONS = 5
+    DENSITY = 0.3
 
     for n in sizes:
+        sum_t_old, sum_m_old = 0.0, 0.0
+        sum_t_new, sum_m_new = 0.0, 0.0
+
         for _ in range(ITERATIONS):
-            graph = generate_random_graph_matrix(n, density=0.25)
+            graph = generate_random_graph_matrix(n, density=DENSITY)
             
             graph_for_old = copy.deepcopy(graph)
-            
-            start_time = time.perf_counter()
+                
+            tracemalloc.start()
+            t0 = time.perf_counter()
+                
             old_impl.CYK_graph(graph_for_old, old_impl.G, log=False)
-            end_time = time.perf_counter()
-            old_time = end_time - start_time
+                
+            t1 = time.perf_counter()
+            current, peak = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+                
+            sum_t_old += (t1 - t0)
+            sum_m_old += peak
             
             graph_for_new = copy.deepcopy(graph)
             
-            start_time = time.perf_counter()
-            new_solver.solve(graph_for_new)
-            end_time = time.perf_counter()
-            new_time = end_time - start_time
+            tracemalloc.start()
+            t0 = time.perf_counter()
             
-            results["old_times"].append(old_time)
-            results["new_times"].append(new_time)
+            new_solver.solve(graph_for_new)
+            
+            t1 = time.perf_counter()
+            current, peak = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+            
+            sum_t_new += (t1 - t0)
+            sum_m_new += peak
+        
+        avg_t_new = sum_t_new / ITERATIONS
+        avg_m_new = (sum_m_new / ITERATIONS) / 1024 
+        
+        results["new_times"].append(avg_t_new)
+        results["new_mems"].append(avg_m_new)
+        
+        avg_t_old = sum_t_old / ITERATIONS
+        avg_m_old = (sum_m_old / ITERATIONS) / 1024
+        results["old_times"].append(avg_t_old)
+        results["old_mems"].append(avg_m_old)
+            
+        print(f"{n:<5} | {avg_t_old:<12.5f} | {avg_t_new:<12.5f} | {avg_m_old:<12.2f} | {avg_m_new:<12.2f}")
 
-            print(f"{n:<10} | {old_time:<15.6f} | {new_time:<15.6f}")
-
-    with open('benchmark_results.json', 'w') as f:
+    with open(f'benchmark_full_results_{DENSITY}.json', 'w') as f:
         json.dump(results, f)
     
-    print("\nРезультаты сохранены в 'benchmark_results.json'")
-
 if __name__ == '__main__':
-    # old_impl.G = G_RULES 
-    
     run_benchmarks()

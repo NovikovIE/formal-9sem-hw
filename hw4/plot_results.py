@@ -1,68 +1,83 @@
 import json
 import matplotlib.pyplot as plt
+import os
 
-def plot_benchmark():
-    # 1. Загружаем данные
-    try:
-        with open('benchmark_results.json', 'r') as f:
-            data = json.load(f)
-    except FileNotFoundError:
-        print("Файл 'benchmark_results.json' не найден.")
+# Список плотностей
+DENSITIES = [0.1, 0.2, 0.3]
+
+def load_data(densities):
+    data_store = {}
+    for d in densities:
+        filename = f'benchmark_full_results_{d}.json'
+        if os.path.exists(filename):
+            with open(filename, 'r') as f:
+                data_store[d] = json.load(f)
+            print(f"[OK] Загружен: {filename}")
+        else:
+            print(f"[SKIP] Файл {filename} не найден.")
+    return data_store
+
+def save_plots(data_store):
+    if not data_store:
+        print("Нет данных для построения графиков.")
         return
 
-    sizes = data['sizes']
-    raw_old = data['old_times']
-    raw_new = data['new_times']
-
-    # 2. Агрегация данных (считаем среднее для каждого N)
-    # Твой скрипт сохраняет 5 измерений на каждый размер.
-    # Нам нужно превратить [t1_1, t1_2, ..., t2_1...] в [avg_t1, avg_t2...]
+    densities_found = sorted(data_store.keys())
+    count = len(densities_found)
     
-    # Вычисляем, сколько было итераций на один размер
-    iterations = len(raw_old) // len(sizes)
-    
-    avg_old = []
-    avg_new = []
+    # Настройка стиля
+    plt.style.use('seaborn-v0_8-whitegrid')
 
-    for i in range(len(sizes)):
-        start = i * iterations
-        end = start + iterations
+    fig_time, axes_time = plt.subplots(1, count, figsize=(6 * count, 6))
+    if count == 1: axes_time = [axes_time] 
+    
+    fig_time.suptitle('Benchmark Results: Time Execution', fontsize=16)
+
+    for i, d in enumerate(densities_found):
+        res = data_store[d]
+        sizes = res['sizes']
+        ax = axes_time[i]
         
-        # Берем срез (кусок) из 5 измерений для текущего N
-        chunk_old = raw_old[start:end]
-        chunk_new = raw_new[start:end]
+        ax.plot(sizes, res['old_times'], label='Old Impl', marker='o', linestyle='--', color='red', markersize=4, alpha=0.7)
+        ax.plot(sizes, res['new_times'], label='New Impl', marker='o', linestyle='-', color='green', markersize=4)
         
-        # Считаем среднее
-        avg_old.append(sum(chunk_old) / len(chunk_old))
-        avg_new.append(sum(chunk_new) / len(chunk_new))
-
-    # 3. Построение графика
-    plt.figure(figsize=(10, 6))
-    
-    # Линия старой реализации (красная)
-    plt.plot(sizes, avg_old, label='Naive Implementation (O(N^5))', 
-             color='red', marker='o', markersize=4, linestyle='--')
-    
-    # Линия новой реализации (зеленая)
-    plt.plot(sizes, avg_new, label='Optimized Implementation', 
-             color='green', marker='s', markersize=4)
-
-    # Оформление
-    plt.title('Сравнение производительности CYK для графов', fontsize=14)
-    plt.xlabel('Количество вершин (N)', fontsize=12)
-    plt.ylabel('Время выполнения (сек)', fontsize=12)
-    plt.legend(fontsize=12)
-    plt.grid(True, which="both", ls="-", alpha=0.4)
-
-    # Опционально: логарифмическая шкала (раскомментируй, если разница огромная)
-    # plt.yscale('log') 
+        ax.set_title(f'Density = {d}')
+        ax.set_xlabel('Graph Size (N)')
+        ax.set_ylabel('Time (seconds)')
+        ax.legend()
+        ax.grid(True)
 
     plt.tight_layout()
-    
-    # Сохранение и показ
-    output_file = 'cyk_benchmark_plot.png'
-    plt.savefig(output_file)
-    print(f"График сохранен в файл: {output_file}")
+    time_filename = 'benchmark_plot_time.png'
+    plt.savefig(time_filename, dpi=300) 
+    print(f"Сохранен график времени: {time_filename}")
+    plt.close(fig_time) 
 
-if __name__ == '__main__':
-    plot_benchmark()
+    fig_mem, axes_mem = plt.subplots(1, count, figsize=(6 * count, 6))
+    if count == 1: axes_mem = [axes_mem]
+
+    fig_mem.suptitle('Benchmark Results: Memory Usage', fontsize=16)
+
+    for i, d in enumerate(densities_found):
+        res = data_store[d]
+        sizes = res['sizes']
+        ax = axes_mem[i]
+        
+        ax.plot(sizes, res['old_mems'], label='Old Impl', marker='o', linestyle='--', color='red', markersize=4, alpha=0.7)
+        ax.plot(sizes, res['new_mems'], label='New Impl', marker='o', linestyle='-', color='blue', markersize=4)
+        
+        ax.set_title(f'Density = {d}')
+        ax.set_xlabel('Graph Size (N)')
+        ax.set_ylabel('Memory (KB)')
+        ax.legend()
+        ax.grid(True)
+
+    plt.tight_layout()
+    mem_filename = 'benchmark_plot_memory.png'
+    plt.savefig(mem_filename, dpi=300) 
+    print(f"Сохранен график памяти:  {mem_filename}")
+    plt.close(fig_mem)
+
+if __name__ == "__main__":
+    data = load_data(DENSITIES)
+    save_plots(data)
