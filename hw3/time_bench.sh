@@ -1,4 +1,4 @@
-python3 clone_file.py war_and_peace_1.txt war_and_peace_1_big.txt
+# python3 clone_file.py war_and_peace_1.txt war_and_peace_1_big.txt
 
 flex -o opt_wc.c my_wc.l
 flex -o opt_wc_2.c my_wc_2.l

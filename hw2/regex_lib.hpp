@@ -4,6 +4,7 @@
 #include <string>
 #include <stack>
 #include <set>
+#include <unordered_set>
 #include <map>
 #include <unordered_map>
 #include <algorithm>
@@ -15,7 +16,7 @@ struct Automaton {
     int startState = 0;
     int stateCount = 0;
 
-    std::set<int> finalStates;
+    std::unordered_set<int> finalStates;
 
     std::vector<std::tuple<int, int, char>> transitions;
     std::vector<int> lookup;
@@ -225,7 +226,7 @@ private:
 
         dfa.startState = addDFAState(getClosure({nfa.startState}));
 
-        while (!q.empty()){
+        while (!q.empty()) {
             auto u = q.front(); 
             q.pop();
             int u_id = states[u];
@@ -321,6 +322,7 @@ private:
                 }
             }
         }
+        // std::cout << "[preprocess] res: " << res << std::endl;
         return res;
     }
 
@@ -351,6 +353,7 @@ private:
             res += op.top(); 
             op.pop(); 
         }
+        // std::cout << "[toPostfix] res: " << res << std::endl;
         return res;
     }
 };

@@ -1,5 +1,5 @@
 ws    [ \t]
-nonws [^ \t\n]
+nonws [^ \t\n] 
 
 %option 8bit fast main noyywrap
 %option pointer
